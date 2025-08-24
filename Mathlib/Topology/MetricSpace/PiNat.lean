@@ -3,6 +3,7 @@ Copyright (c) 2022 Sébastien Gouëzel. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Sébastien Gouëzel
 -/
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Mathlib.Topology.Algebra.MetricSpace.Lipschitz
 import Mathlib.Topology.MetricSpace.HausdorffDistance
 
@@ -781,6 +782,31 @@ open PiNat
 /-- Any nonempty complete second countable metric space is the continuous image of the
 fundamental space `ℕ → ℕ`. For a version of this theorem in the context of Polish spaces, see
 `exists_nat_nat_continuous_surjective_of_polishSpace`. -/
+lemma const_mul_pow (c x : ℝ≥0∞) (hx : x < 1) (hc : c ≠ ⊤) :
+    Tendsto (fun n ↦ c * (x : ℝ≥0∞) ^ n) atTop (𝓝 0) := by
+  have := ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one (r :=x) hx
+  rw [ENNReal.tendsto_atTop_zero] at ⊢ this
+  exact fun ε hε ↦ Exists.imp (fun N h n hn => ENNReal.mul_le_of_le_div' (h n hn)) (this (ε / c)
+     (by simp [hc]; exact pos_iff_ne_zero.mp hε))
+
+lemma const_mul_pow' (c x : ℝ) (hx : |x| < 1) :
+    Tendsto (fun n ↦ c * (x : ℝ) ^ n) atTop (𝓝 0) := by
+  by_cases hc : c = 0
+  · simp [hc]
+  have := tendsto_pow_atTop_nhds_zero_of_abs_lt_one (r :=x) hx
+  rw [NormedAddCommGroup.tendsto_atTop'] at ⊢ this
+  intro ε hε
+  specialize this (ε / ‖c‖) (by simp [hε,hc])
+  obtain ⟨N, this⟩ := this
+  use N
+  intro n hn
+  specialize this n hn
+  simp_all only [sub_zero, norm_pow, Real.norm_eq_abs, norm_mul]
+  rw [pow_abs] at this ⊢
+  rw [←lt_div_iff₀' (abs_pos.mpr hc)]
+  exact this
+
+
 theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [MetricSpace α]
     [CompleteSpace α] [SecondCountableTopology α] [Nonempty α] :
     ∃ f : (ℕ → ℕ) → α, Continuous f ∧ Surjective f := by
@@ -790,7 +816,6 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
     balls `closedBall (u xₙ) (1/2^n)` have a nonempty intersection. This set is closed,
     and we define `f x` there to be the unique point in the intersection.
     This function is continuous and surjective by design. -/
-  stop
   letI : MetricSpace (ℕ → ℕ) := PiNat.metricSpaceNatNat
   rcases exists_dense_seq α with ⟨u, hu⟩
   let s : Set (ℕ → ℕ) := { x | (⋂ n : ℕ, closedBall (u (x n)) (2⁻¹ ^ n)).Nonempty }
@@ -821,6 +846,7 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
       _ = dist (g x) (u (x.1 n)) + dist (g y) (u (y.1 n)) := by rw [← B]
       _ ≤ 2⁻¹ ^ n + 2⁻¹ ^ n := add_le_add (A x n) (A y n)
       _ = 4 * 2⁻¹ ^ (n + 1) := by ring
+
   have g_surj : Surjective g := fun y ↦ by
     have : ∀ n : ℕ, ∃ j, y ∈ closedBall (u j) (2⁻¹ ^ n) := fun n ↦ by
       rcases hu.exists_dist_lt y (by simp : (0 : ℝ) < 2⁻¹ ^ n) with ⟨j, hj⟩
@@ -834,19 +860,22 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
         dist (g ⟨x, I⟩) y ≤ dist (g ⟨x, I⟩) (u (x n)) + dist y (u (x n)) :=
           dist_triangle_right _ _ _
         _ ≤ 2⁻¹ ^ n + 2⁻¹ ^ n := add_le_add (A ⟨x, I⟩ n) (hx n)
-    have L : Tendsto (fun n : ℕ => (2⁻¹ : ℝ≥0∞) ^ n + 2⁻¹ ^ n) atTop (𝓝 (0 + 0)) :=
-      (tendsto_pow_atTop_nhds_zero_of_lt_one (by simp) ENNReal.one_half_lt_one).add
-        (tendsto_pow_atTop_nhds_zero_of_lt_one (by simp) ENNReal.one_half_lt_one)
-    rw [add_zero] at L
-    exact ge_of_tendsto' L J
+    have L : Tendsto (fun n : ℕ => (2⁻¹ : ℝ) ^ n + 2⁻¹ ^ n) atTop (𝓝 0) := by
+      simp_rw [←two_mul]
+      apply const_mul_pow'
+      simp only [abs_inv, Nat.abs_ofNat]
+      linarith
+    have := tendsto_const_nhds (x := dist (g ⟨x, I⟩) y) (α := ℕ)  (f:= atTop)
+    exact ge_of_tendsto' (x:=atTop) (b:= dist (g ⟨x, I⟩) y) L J
+
   have s_closed : IsClosed s := by
     refine isClosed_iff_clusterPt.mpr fun x hx ↦ ?_
     have L : Tendsto (fun n : ℕ => diam (closedBall (u (x n)) (2⁻¹ ^ n))) atTop (𝓝 0) := by
-      have : Tendsto (fun n : ℕ => (2 : ℝ) * 2⁻¹ ^ n) atTop (𝓝 (2 * 0)) :=
-        (tendsto_pow_atTop_nhds_zero_of_lt_one (by simp) ENNReal.one_half_lt_one).const_mul _
-      rw [mul_zero] at this
-      exact
-        squeeze_zero (fun n => diam_nonneg) (fun n => diam_closedBall <| by positivity) this
+      have : Tendsto (fun n : ℕ => (2 : ℝ) * 2⁻¹ ^ n) atTop (𝓝 0) := by
+        apply const_mul_pow'
+        simp only [abs_inv, Nat.abs_ofNat]
+        exact two_inv_lt_one
+      exact squeeze_zero (fun n => diam_nonneg) (fun n => diam_closedBall <| by positivity) this
     refine nonempty_iInter_of_nonempty_biInter (fun n => isClosed_closedBall)
       (fun n => isBounded_closedBall) (fun N ↦ ?_) L
     obtain ⟨y, hxy, ys⟩ : ∃ y, y ∈ ball x (2⁻¹ ^ N) ∩ s :=
@@ -865,6 +894,7 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
     apply exists_retraction_subtype_of_isClosed s_closed
     simpa only [nonempty_coe_sort] using g_surj.nonempty
   exact ⟨g ∘ f, g_cont.comp f_cont, g_surj.comp f_surj⟩
+
 
 namespace PiCountable
 
