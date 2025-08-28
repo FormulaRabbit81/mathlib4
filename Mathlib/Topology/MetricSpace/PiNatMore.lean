@@ -141,6 +141,14 @@ noncomputable def toPiNatHomeo (continuous_f : ∀ i, Continuous (f i))
   (toPiNatEquiv X Y f).toHomeomorphOfIsInducing
     (isHomeomorph_toPiNat continuous_f separating_f).isInducing
 
+/-- If `X` is compact, and there exists a sequence of continuous functions `f i : X → Y i` to
+metric spaces `Y i` that separate points on `X`, then `X` is metrizable. -/
+lemma TopologicalSpace.MetrizableSpace.of_countable_separating (f : ∀ i, X → Y i)
+    (continuous_f : ∀ i, Continuous (f i)) (separating_f : Pairwise fun x y ↦ ∃ i, f i x ≠ f i y) :
+    MetrizableSpace X :=
+  letI := Metric.PiNatEmbed.metricSpace separating_f
+  (Metric.PiNatEmbed.toPiNatHomeo X Y f continuous_f separating_f).isEmbedding.metrizableSpace
+
 end CompactSpace
 
 open TopologicalSpace Filter
@@ -189,11 +197,9 @@ lemma injective_T : Pairwise fun x y ↦ ∃ n, T_func X n x ≠ T_func X n y :=
   intro x y hxy
   obtain ⟨ε, n, hεpos, lbound, ubound⟩ := separation x {y} isClosed_singleton
     (instNonemptyOfInhabited) (by simpa)
-  use n; specialize ubound y rfl
-  refine Subtype.coe_ne_coe.mp <| ne_of_lt ?_
-  apply lbound.trans_lt
-  apply lt_of_le_of_lt' ubound
-  linarith
+  use n
+  exact Subtype.coe_ne_coe.mp <| ne_of_lt <| lbound.trans_lt <|
+    lt_of_le_of_lt' (ubound y rfl) (by linarith)
 
 variable (A : Type*) [TopologicalSpace A]
 
@@ -208,14 +214,12 @@ theorem homeothingamajig : ∃ funn : X → ℕ → I, IsEmbedding funn := by
     continuous_invFun := by
       refine SeqContinuous.continuous ?_
       intro txn tx h_conv_txn
-      by_contra! hdoesnt
-      rw [tendsto_atTop'] at hdoesnt
-      simp only [gt_iff_lt, comp_apply, not_forall, not_exists, not_lt] at hdoesnt
-      obtain ⟨ε, εpos, hwhat⟩ := hdoesnt
-      simp at hwhat
-      change ∀ (N : ℕ), ∃ n > N, ε ≤ dist (txn n).ofPiNat tx.ofPiNat at hwhat
-      obtain ⟨subseq,hmonosubseq,hsepsubseq⟩ := Nat.exists_strictMono_subsequence hwhat
-      have sep : tx.ofPiNat ∉ (closure <| Set.range (fun n => (txn <| subseq n).ofPiNat)) := by
+      by_contra! h_noconv
+      rw [tendsto_atTop'] at h_noconv
+      simp only [gt_iff_lt, comp_apply, not_forall, not_exists, not_lt, exists_prop] at h_noconv
+      obtain ⟨ε, εpos, h_noconv⟩ := h_noconv
+      obtain ⟨subseq,hmonosubseq,hsepsubseq⟩ := Nat.exists_strictMono_subsequence h_noconv
+      have hsep : tx.ofPiNat ∉ (closure <| Set.range (fun n => (txn <| subseq n).ofPiNat)) := by
         refine (infDist_pos_iff_notMem_closure
         (range_nonempty fun n ↦ (txn (subseq n)).ofPiNat)).mpr ?_
         rw [infDist_eq_iInf]
@@ -223,25 +227,21 @@ theorem homeothingamajig : ∃ funn : X → ℕ → I, IsEmbedding funn := by
         refine (le_ciInf_set_iff (range_nonempty fun n ↦ (txn (subseq n)).ofPiNat) ?_).mpr ?_
         · use 0; simp [lowerBounds]
         · simp; refine fun a ↦ by rw [dist_comm]; exact hsepsubseq a
-      have nonemp : Nonempty <| (closure <| Set.range (fun n => (txn <| subseq n).ofPiNat)) := by
+      have hnonemp : Nonempty <| (closure <| Set.range (fun n => (txn <| subseq n).ofPiNat)) := by
         rw [@nonempty_coe_sort,
             closure_nonempty_iff]; exact range_nonempty fun n ↦ (txn (subseq n)).ofPiNat
-      obtain ⟨δ, i, δpos, hlineq, hgreq⟩ :=
+      obtain ⟨δ, i, δpos, hlineq, hgrineq⟩ :=
           separation tx.ofPiNat (closure
           <| Set.range (fun n => (txn <| subseq n).ofPiNat)) isClosed_closure
-          nonemp sep
-      rw [tendsto_atTop] at h_conv_txn
-      specialize h_conv_txn ((2 ^ i)⁻¹ * (δ / 3)) (by positivity)
-      rw [← eventually_atTop,eventually_iff_seq_eventually] at h_conv_txn
-      specialize h_conv_txn subseq <| StrictMono.tendsto_atTop hmonosubseq
-      have kc (n : ℕ) : 2 * δ / 3 ≤ (T_func X i (txn (subseq n)).ofPiNat) :=
-        hgreq (txn (subseq n)).ofPiNat <| subset_closure <| mem_range_self n
+          hnonemp hsep
+      have hubound (n : ℕ) : 2 * δ / 3 ≤ (T_func X i (txn (subseq n)).ofPiNat) :=
+        hgrineq (txn (subseq n)).ofPiNat <| subset_closure <| mem_range_self n
       have closurethang (n : ℕ):
           (txn (subseq n)).ofPiNat ∈ closure (range fun m ↦ (txn (subseq m)).ofPiNat) := by
         refine mem_closure_range_iff.mpr ?_
         intro ε hε; use n; simpa using hε
       by_cases δsize : 3 < δ
-      · linarith [kc 0, unitInterval.le_one (T_func X i (txn (subseq 0)).ofPiNat)]
+      · linarith [hubound 0, unitInterval.le_one (T_func X i (txn (subseq 0)).ofPiNat)]
       have total_dist (n : ℕ) :  (2 ^ i)⁻¹ * (δ / 3) ≤ dist (txn (subseq n)) tx  := by
         simp [dist]
         have summ : Summable fun i ↦ min ((2 ^ i) : ℝ)⁻¹
@@ -264,21 +264,21 @@ theorem homeothingamajig : ∃ funn : X → ℕ → I, IsEmbedding funn := by
             refine le_abs.mpr ?_
             left
             simp [embed]
-            refine le_tsub_of_add_le_left ?_
-            specialize hgreq (txn (subseq n)).ofPiNat (closurethang n)
-            apply le_trans _ hgreq
-            apply le_trans (add_le_add_right hlineq ((2 ^ i)⁻¹ * (δ / 3))) ?_
-            refine add_le_of_le_tsub_left_of_le ?_ ?_
-            · linarith
-            · rw [mul_div_assoc 2 δ 3,two_mul, add_sub_cancel_right,← one_mul (δ / 3)]
-              bound
+            specialize hgrineq (txn (subseq n)).ofPiNat (closurethang n)
+            refine le_tsub_of_add_le_left (le_trans (le_trans (add_le_add_right hlineq
+                ((2 ^ i)⁻¹ * (δ / 3))) (add_le_of_le_tsub_left_of_le (by linarith) ?_)) hgrineq)
+            rw [mul_div_assoc 2 δ 3,two_mul, add_sub_cancel_right,← one_mul (δ / 3)]
+            bound
           _ ≤ ∑' (i : ℕ), min (2 ^ i)⁻¹ |↑(embed X (fun i ↦ ↑I) (T_func X) (txn (subseq n)) i) -
                 ↑(embed X (fun i ↦ ↑I) (T_func X) tx i)| := by
             apply Summable.le_tsum (f := fun (i : ℕ) ↦
                 min ((2 ^ i) : ℝ)⁻¹ |↑(embed X (fun i ↦ ↑I) (T_func X) (txn (subseq n)) i) -
-                ↑(embed X (fun i ↦ ↑I) (T_func X) tx i)|) (i := i) ?_ ?_
+                ↑(embed X (fun i ↦ ↑I) (T_func X) tx i)|) (i := i) ?_ (fun _ _ ↦ (by positivity))
             · exact summ
-            · intro j hj; positivity
+      rw [tendsto_atTop] at h_conv_txn
+      specialize h_conv_txn ((2 ^ i)⁻¹ * (δ / 3)) (by positivity)
+      rw [← eventually_atTop,eventually_iff_seq_eventually] at h_conv_txn
+      specialize h_conv_txn subseq <| StrictMono.tendsto_atTop hmonosubseq
       simp [total_dist, -eventually_atTop, ← not_le, NeBot.ne] at h_conv_txn
   }
   let secondstep : PiNatEmbed X (fun i => I) (T_func X) → ℕ → I := embed _ _ _
@@ -288,18 +288,8 @@ theorem homeothingamajig : ∃ funn : X → ℕ → I, IsEmbedding funn := by
   exact Topology.IsEmbedding.comp (g:= secondstep) (isEmbedding_secondstep)
       (Homeomorph.isEmbedding firststep)
 
+end MetricSpace
 
-#lintunusedHavesSuffices
-#exit
+end PiNatEmbed
 
-instance : SequentialSpace <| PiNatEmbed X (fun i => I) (T_func X) := FrechetUrysohnSpace.to_sequentialSpace
-
-variable [TopologicalSpace X] [CompactSpace X] [∀ i, MetricSpace (Y i)]
-
-/-- If `X` is compact, and there exists a sequence of continuous functions `f i : X → Y i` to
-metric spaces `Y i` that separate points on `X`, then `X` is metrizable. -/
-lemma TopologicalSpace.MetrizableSpace.of_countable_separating (f : ∀ i, X → Y i)
-    (continuous_f : ∀ i, Continuous (f i)) (separating_f : Pairwise fun x y ↦ ∃ i, f i x ≠ f i y) :
-    MetrizableSpace X :=
-  letI := Metric.PiNatEmbed.metricSpace separating_f
-  (Metric.PiNatEmbed.toPiNatHomeo X Y f continuous_f separating_f).isEmbedding.metrizableSpace
+end Metric
