@@ -789,22 +789,20 @@ lemma const_mul_pow (c x : ℝ≥0∞) (hx : x < 1) (hc : c ≠ ⊤) :
   exact fun ε hε ↦ Exists.imp (fun N h n hn => ENNReal.mul_le_of_le_div' (h n hn)) (this (ε / c)
      (by simp [hc]; exact pos_iff_ne_zero.mp hε))
 
-lemma const_mul_pow' (c x : ℝ) (hx : |x| < 1) :
-    Tendsto (fun n ↦ c * (x : ℝ) ^ n) atTop (𝓝 0) := by
-  by_cases hc : c = 0
-  · simp [hc]
-  have := tendsto_pow_atTop_nhds_zero_of_abs_lt_one (r :=x) hx
-  rw [NormedAddCommGroup.tendsto_atTop'] at ⊢ this
+lemma ENNReal.Tendsto.mul_const_zero (c : ℝ≥0∞) (f : ℕ → ℝ≥0∞) (h : Tendsto f atTop (𝓝 0))
+    (hc : c ≠ ⊤) : Tendsto (c * f ·) atTop (𝓝 0) := by
+  rw [ENNReal.tendsto_atTop_zero] at ⊢ h
+  exact fun ε hε ↦ Exists.imp (fun N p n hn => ENNReal.mul_le_of_le_div' (p n hn)) (h (ε / c)
+     (by simp [hc]; exact pos_iff_ne_zero.mp hε))
+
+lemma Real.Tendsto.mul_const_zero (c : ℝ) (f : ℕ → ℝ) (h : Tendsto f atTop (𝓝 0)):
+    Tendsto (c * f ·) atTop (𝓝 0) := by
+  by_cases hc : c = 0; · simp [hc]
+  rw [NormedAddCommGroup.tendsto_atTop'] at ⊢ h
   intro ε hε
-  specialize this (ε / ‖c‖) (by simp [hε,hc])
-  obtain ⟨N, this⟩ := this
+  obtain ⟨N, h⟩ := h (ε / ‖c‖) (by simp [hε,hc])
   use N
-  intro n hn
-  specialize this n hn
-  simp_all only [sub_zero, norm_pow, Real.norm_eq_abs, norm_mul]
-  rw [pow_abs] at this ⊢
-  rw [←lt_div_iff₀' (abs_pos.mpr hc)]
-  exact this
+  simp_all [sub_zero, norm_eq_abs, norm_mul, ←lt_div_iff₀' (abs_pos.mpr hc)]
 
 
 theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [MetricSpace α]
@@ -862,18 +860,16 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
         _ ≤ 2⁻¹ ^ n + 2⁻¹ ^ n := add_le_add (A ⟨x, I⟩ n) (hx n)
     have L : Tendsto (fun n : ℕ => (2⁻¹ : ℝ) ^ n + 2⁻¹ ^ n) atTop (𝓝 0) := by
       simp_rw [←two_mul]
-      apply const_mul_pow'
-      simp only [abs_inv, Nat.abs_ofNat]
+      apply Real.Tendsto.mul_const_zero
+      simp only [tendsto_pow_atTop_nhds_zero_iff, abs_inv, Nat.abs_ofNat]
       linarith
-    have := tendsto_const_nhds (x := dist (g ⟨x, I⟩) y) (α := ℕ)  (f:= atTop)
     exact ge_of_tendsto' (x:=atTop) (b:= dist (g ⟨x, I⟩) y) L J
-
   have s_closed : IsClosed s := by
     refine isClosed_iff_clusterPt.mpr fun x hx ↦ ?_
     have L : Tendsto (fun n : ℕ => diam (closedBall (u (x n)) (2⁻¹ ^ n))) atTop (𝓝 0) := by
       have : Tendsto (fun n : ℕ => (2 : ℝ) * 2⁻¹ ^ n) atTop (𝓝 0) := by
-        apply const_mul_pow'
-        simp only [abs_inv, Nat.abs_ofNat]
+        apply Real.Tendsto.mul_const_zero
+        simp only [tendsto_pow_atTop_nhds_zero_iff, abs_inv, Nat.abs_ofNat]
         exact two_inv_lt_one
       exact squeeze_zero (fun n => diam_nonneg) (fun n => diam_closedBall <| by positivity) this
     refine nonempty_iInter_of_nonempty_biInter (fun n => isClosed_closedBall)
@@ -887,7 +883,7 @@ theorem exists_nat_nat_continuous_surjective_of_completeSpace (α : Type*) [Metr
       have : x n = y n := apply_eq_of_dist_lt (mem_ball'.1 hxy) hn
       rw [this]
     rw [E]
-    apply Nonempty.mono _ ys
+    refine Nonempty.mono ?_ ys
     apply iInter_subset_iInter₂
   obtain ⟨f, -, f_surj, f_cont⟩ :
     ∃ f : (ℕ → ℕ) → s, (∀ x : s, f x = x) ∧ Surjective f ∧ Continuous f := by
