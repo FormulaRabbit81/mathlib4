@@ -92,9 +92,6 @@ protected lemma exists_pos_mul_lt (hx : x ≠ ∞) (hy₀ : y ≠ 0) : ∃ c, 0 
   gcongr
   exacts [hy, ENNReal.lt_add_right hx one_ne_zero]
 
-end ENNReal
-
-namespace ENNReal
 variable {ι : Type*} [Encodable ι] {r : ℝ≥0∞}
 
 open Encodable
@@ -113,7 +110,9 @@ lemma tsum_geometric_encode_lt_top (hr : r < 1) : ∑' i : ι, (r : ℝ≥0∞) 
   (ENNReal.tsum_comp_le_tsum_of_injective encode_injective _).trans_lt <| by simpa
 
 lemma sum_add_tsum_compl {ι : Type*} (s : Finset ι) (f : ι → ℝ≥0∞) :
-    ∑ i ∈ s, f i + ∑' i : ↑s.toSetᶜ, f i = ∑' i, f i := sorry
+    ∑ i ∈ s, f i + ∑' i : ↑s.toSetᶜ, f i = ∑' i, f i := by
+  rw [tsum_subtype,sum_eq_tsum_indicator,← ENNReal.tsum_add]
+  simp
 
 end ENNReal
 
