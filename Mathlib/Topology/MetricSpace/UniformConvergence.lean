@@ -135,8 +135,7 @@ noncomputable instance [BoundedSpace β] : PseudoMetricSpace (α →ᵤ β) :=
       refine Real.iSup_nonneg ?_
       exact fun i ↦ dist_nonneg)
     (fun a b ↦ by
-    simp [edist_def, dist_edist]
-    simp [←ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _)]
+    simp only [edist_def, dist_edist, ← ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _)]
     refine Eq.symm ((fun {a} ↦ ENNReal.ofReal_toReal_eq_iff.mpr) ?_)
     have H_diam_lt_top := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
     refine ne_of_lt (lt_of_le_of_lt (iSup_le (fun x => EMetric.edist_le_diam_of_mem
