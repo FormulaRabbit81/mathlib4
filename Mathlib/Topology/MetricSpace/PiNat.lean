@@ -66,7 +66,7 @@ abbrev replaceDist (m : PseudoMetricSpace X) (d : X → X → ℝ) (hd : d = dis
   cobounded_sets := by simp [hd, cobounded_sets]
   __ := m
 
-lemma replaceDist_eq (m : PseudoMetricSpace X) (d : X → X → ℝ) (hd : d = dist) :
+lemma replaceDist_eq (m : PseudoMetricSpace X) (d : X → X → ℝ) (hd) :
     m.replaceDist d hd = m := by ext : 2; exact hd
 
 end PseudoMetricSpace
