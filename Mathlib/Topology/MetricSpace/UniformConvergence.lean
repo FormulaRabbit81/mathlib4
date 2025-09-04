@@ -132,9 +132,14 @@ noncomputable instance [BoundedSpace β] : PseudoMetricSpace (α →ᵤ β) :=
     (fun f g ↦ ⨆ x, dist (toFun f x) (toFun g x))
     (fun _ _ ↦ by
       have := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
-      refine (iSup_le fun x ↦ EMetric.edist_le_diam_of_mem ?_ ?_).trans_lt this |>.ne
-      all_goals trivial)
-    (fun _ _ ↦ by simp [edist_def, ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _), dist_edist])
+      refine Real.iSup_nonneg ?_
+      exact fun i ↦ dist_nonneg)
+    (fun _ _ ↦ by
+    simp [edist_def, dist_edist]
+    simp [←ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _)]
+    refine Eq.symm ((fun {a} ↦ ENNReal.ofReal_toReal_eq_iff.mpr) ?_)
+    sorry
+    )
 
 lemma dist_def [BoundedSpace β] (f g : α →ᵤ β) :
     dist f g = ⨆ x, dist (toFun f x) (toFun g x) :=
@@ -282,11 +287,24 @@ noncomputable instance [BoundedSpace β] : PseudoMetricSpace (α →ᵤ[𝔖] β
     (fun f g ↦ ⨆ x ∈ ⋃₀ 𝔖, dist (toFun 𝔖 f x) (toFun 𝔖 g x))
     (fun _ _ ↦ by
       have := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
-      exact (iSup₂_le fun x _ ↦ EMetric.edist_le_diam_of_mem (Set.mem_univ _) (Set.mem_univ _))
-        |>.trans_lt this |>.ne)
+      simp [iSup]
+      rw [@sSup_range]
+      refine Real.iSup_nonneg ?_
+      intro i
+      refine Real.sSup_nonneg ?_
+      intro x hx
+      simp only [Set.mem_range, Set.mem_sUnion, exists_prop] at hx
+      obtain ⟨_, hx⟩ := hx
+      rw [← hx]
+      exact dist_nonneg)
     (fun _ _ ↦ by
       simp only [dist_edist, edist_def, ← ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _)]
-      rw [ENNReal.toReal_iSup]
+      rw [←ENNReal.toReal_iSup]
+      · simp
+        refine Eq.symm ((fun {a} ↦ ENNReal.ofReal_toReal_eq_iff.mpr) ?_)
+        refine Ne.symm (ne_of_gt ?_)
+        sorry
+        --rw [iSup_lt_iff]
       have := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
       refine fun x ↦ lt_of_le_of_lt (iSup_le fun hx ↦ ?_) this |>.ne
       exact EMetric.edist_le_diam_of_mem (Set.mem_univ _) (Set.mem_univ _))
