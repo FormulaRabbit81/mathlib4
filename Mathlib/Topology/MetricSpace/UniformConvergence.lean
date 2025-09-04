@@ -134,12 +134,13 @@ noncomputable instance [BoundedSpace β] : PseudoMetricSpace (α →ᵤ β) :=
       have := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
       refine Real.iSup_nonneg ?_
       exact fun i ↦ dist_nonneg)
-    (fun _ _ ↦ by
+    (fun a b ↦ by
     simp [edist_def, dist_edist]
     simp [←ENNReal.toReal_iSup (fun _ ↦ edist_ne_top _ _)]
     refine Eq.symm ((fun {a} ↦ ENNReal.ofReal_toReal_eq_iff.mpr) ?_)
-    sorry
-    )
+    have H_diam_lt_top := BoundedSpace.bounded_univ (α := β) |>.ediam_ne_top.lt_top
+    refine ne_of_lt (lt_of_le_of_lt (iSup_le (fun x => EMetric.edist_le_diam_of_mem
+      (Set.mem_univ (toFun a x)) (Set.mem_univ (toFun b x)))) H_diam_lt_top))
 
 lemma dist_def [BoundedSpace β] (f g : α →ᵤ β) :
     dist f g = ⨆ x, dist (toFun f x) (toFun g x) :=
